@@ -1,0 +1,131 @@
+function [sys,x0,str,ts] = model1(t,x,u,flag)
+%CSFUNC An example MATLAB file S-function for defining a continuous system.  
+%   Example MATLAB file S-function implementing continuous equations: 
+%      x' = Ax + Bu
+%      y  = Cx + Du
+%   
+%   See sfuntmpl.m for a general S-function template.
+%
+%   See also SFUNTMPL.
+  
+%   Copyright 1990-2009 The MathWorks, Inc.
+
+
+switch flag,
+
+  %%%%%%%%%%%%%%%%%%
+  % Initialization %
+  %%%%%%%%%%%%%%%%%%
+  case 0,
+    [sys,x0,str,ts]=mdlInitializeSizes();
+
+  %%%%%%%%%%%%%%%
+  % Derivatives %
+  %%%%%%%%%%%%%%%
+  case 1,
+    sys=mdlDerivatives(t,x,u);
+
+  %%%%%%%%%%%
+  % Outputs %
+  %%%%%%%%%%%
+  case 3,
+    sys=mdlOutputs(t,x);
+
+  %%%%%%%%%%%%%%%%%%%
+  % Unhandled flags %
+  %%%%%%%%%%%%%%%%%%%
+  case { 2, 4, 9 },
+    sys = [];
+
+  %%%%%%%%%%%%%%%%%%%%
+  % Unexpected flags %
+  %%%%%%%%%%%%%%%%%%%%
+  otherwise
+    DAStudio.error('Simulink:blocks:unhandledFlag', num2str(flag));
+
+end
+% end csfunc
+
+%
+%=============================================================================
+% mdlInitializeSizes
+% Return the sizes, initial conditions, and sample times for the S-function.
+%=============================================================================
+%
+function [sys,x0,str,ts]=mdlInitializeSizes()
+
+sizes = simsizes;
+sizes.NumContStates  = 0;
+sizes.NumDiscStates  = 12;
+sizes.NumOutputs     = 6; % y
+sizes.NumInputs      = 4; % u  
+sizes.DirFeedthrough = 0; % D=0
+sizes.NumSampleTimes = 1;
+
+sys = simsizes(sizes); %system size, state size
+x0  = zeros(12,1);   %initial states
+str = [];
+ts  = [1e-3 0];
+
+% end mdlInitializeSizes
+%
+%=============================================================================
+% mdlDerivatives
+% Return the derivatives for the continuous states.
+%=============================================================================
+%
+function sys=mdlDerivatives(t,x,u)
+g=9.81;
+m=0.5;
+Iy=5e-3;
+Iz=5e-3;
+Ix=5e-3;
+
+%Next I will deal with the rotor inputs
+
+%Next I will map the states from the inputs x
+%Linear Velocity Components
+U=x(1); %This is effectively U
+v=x(2); %V
+w=x(3); %W
+
+%Angular Velocity Components
+p=x(4); %P
+q=x(5); %Q
+r=x(6); %R
+
+%Euler Angles
+phi=x(7);
+theta=x(8);
+psi=x(9);
+delta=x(13);
+
+%Linear Positions
+X=x(10);
+y=x(11);
+z=x(12);
+
+sys(1)= U + delta(((r*v - q*w) + g*sin(theta)));%dU
+sys(2)= V + delta((p*w - r*U - g*cos(theta)*sin(phi)));%dV  
+sys(3)= W + delta((q*U - p*v - g*cos(theta)*cos(phi) + u(1)/m));%dW
+sys(4)= P + delta(((Iy - Iz)*q*r/Ix + u(2)/Ix)); %dP
+sys(5)= Q + delta(((Iz - Ix)*p*r/Iy + u(3)/Iy)); %dQ
+sys(6)= R + delta(((Ix - Iy)*p*q/Iz + u(4)/Iz)); %dR
+sys(7)= PHI + delta((p + sin(phi)*tan(theta)*q + cos(phi)*tan(theta)*r));    %dPHI
+sys(8)= THE + delta((cos(phi)*q - sin(phi)*r));  %dTHE 
+sys(9)= PSI + delta(((sin(phi)*q)/cos(theta) + (cos(phi)*r)/cos(theta)));    %dPSI
+sys(10)= X + delta(((cos(psi)*cos(theta))*U + ((cos(psi)*sin(theta)*sin(phi))-(sin(psi)*cos(phi)))*v+((cos(psi)*sin(theta)*cos(phi))+(sin(psi)*sin(phi)))*w));      %dX
+sys(11)= Y + delta((sin(psi)*cos(theta))*U + ((sin(psi)*sin(theta)*sin(phi))+(cos(psi)*cos(phi)))*v+ ((sin(psi)*sin(theta)*cos(phi)) - (cos(psi)*sin(phi)))*w);      %dY
+sys(12)= Z + delta((-sin(theta)*U + cos(theta)*sin(phi)*v + cos(theta)*cos(phi)*w));      %dZ
+% end mdlDerivatives
+%
+%=============================================================================
+% mdlOutputs
+% Return the block outputs.
+%=============================================================================
+%
+function sys=mdlOutputs(t,x)
+
+sys = [ x(7) x(8) x(9) x(10) x(11) x(12) ];
+
+% end mdlOutputs
